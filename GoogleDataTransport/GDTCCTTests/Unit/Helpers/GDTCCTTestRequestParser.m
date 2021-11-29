@@ -72,15 +72,20 @@
 
 + (gdt_client_metrics_ClientMetrics)clientMetricsWithData:(NSData *)data
                                                     error:(NSError **)outError {
-  gdt_client_metrics_ClientMetrics clientMetrics = gdt_client_metrics_ClientMetrics_init_default;
+  gdt_client_metrics_ClientMetrics clientMetrics = gdt_client_metrics_ClientMetrics_init_zero;
 
   pb_istream_t istream = pb_istream_from_buffer([data bytes], [data length]);
   if (!pb_decode(&istream, gdt_client_metrics_ClientMetrics_fields, &clientMetrics)) {
     NSString *nanopb_error = [NSString stringWithFormat:@"%s", PB_GET_ERROR(&istream)];
     NSDictionary *userInfo = @{@"nanopb error:" : nanopb_error};
     if (outError != NULL) {
-      *outError = [NSError errorWithDomain:NSURLErrorDomain code:-1 userInfo:userInfo];
+      *outError = [NSError errorWithDomain:@"GDTCCTTestRequestParser" code:-1 userInfo:userInfo];
     }
+  }
+
+  if (clientMetrics.log_source_metrics == NULL && outError != NULL) {
+    NSString *errorInfo = @"Failed to parse required fields.";
+    *outError = [NSError errorWithDomain:@"GDTCCTTestRequestParser" code:-1 userInfo:@{ NSLocalizedFailureReasonErrorKey:  errorInfo}];
   }
 
   return clientMetrics;

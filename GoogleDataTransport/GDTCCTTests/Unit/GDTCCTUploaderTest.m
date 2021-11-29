@@ -30,6 +30,8 @@
 #import "GoogleDataTransport/GDTCCTTests/Unit/Helpers/GDTCCTEventGenerator.h"
 #import "GoogleDataTransport/GDTCCTTests/Unit/Helpers/GDTCCTTestRequestParser.h"
 #import "GoogleDataTransport/GDTCCTTests/Unit/TestServer/GDTCCTTestServer.h"
+#import "GoogleDataTransport/GDTCCTTests/Unit/Helpers/GDTCORClientMetricsTestHelpers.h"
+#import "GoogleDataTransport/GDTCCTLibrary/GDTCORClientMetrics+GDTCCTSupport.h"
 
 typedef NS_ENUM(NSInteger, GDTNextRequestWaitTimeSource) {
   GDTNextRequestWaitTimeSourceResponseBody,
@@ -90,6 +92,8 @@ typedef NS_ENUM(NSInteger, GDTNextRequestWaitTimeSource) {
 }
 
 - (void)tearDown {
+  self.clientMetrics = nil;
+  self.clientMetricsController = nil;
   [self.uploader waitForUploadFinishedWithTimeout:1];
   self.testServer.responseCompletedBlock = nil;
   self.testServer.requestHandler = nil;
@@ -102,13 +106,16 @@ typedef NS_ENUM(NSInteger, GDTNextRequestWaitTimeSource) {
 #pragma mark - Upload flow tests
 
 - (void)testUploadTargetWhenThereAreEventsToUpload {
-  // 0. Generate test events.
+  // 0.1 Generate test events.
   id<GDTCORStorageProtocol> storage = GDTCORStorageInstanceForTarget(kGDTCORTargetTest);
   XCTAssertNotNil(storage);
   [[self.generator generateTheFiveConsistentEvents]
       enumerateObjectsUsingBlock:^(GDTCOREvent *_Nonnull obj, NSUInteger idx, BOOL *_Nonnull stop) {
         [storage storeEvent:obj onComplete:nil];
       }];
+
+  // 0.2. Configure client metrics.
+  [self configureDefaultClientMetrics];
 
   // 1. Set up expectations.
   // 1.1. Set up all relevant storage expectations.
@@ -124,6 +131,9 @@ typedef NS_ENUM(NSInteger, GDTNextRequestWaitTimeSource) {
   // 1.4. Expect a batch to be uploaded.
   XCTestExpectation *responseSentExpectation = [self expectationTestServerSuccessRequestResponse];
 
+  // 1.5. Client metrics confirmation expectation.
+  XCTestExpectation *metricsSentConfirmationExpectation = [self expectationForClientMetricsSendingConfirmation];
+
   // 2. Create uploader and start upload.
   [self.uploader uploadTarget:kGDTCORTargetTest withConditions:GDTCORUploadConditionWifiData];
 
@@ -131,7 +141,7 @@ typedef NS_ENUM(NSInteger, GDTNextRequestWaitTimeSource) {
   [self waitForExpectations:@[
     self.testStorage.batchIDsForTargetExpectation,
     self.testStorage.removeBatchWithoutDeletingEventsExpectation, hasEventsExpectation,
-    self.testStorage.batchWithEventSelectorExpectation, responseSentExpectation,
+    self.testStorage.batchWithEventSelectorExpectation, responseSentExpectation, metricsSentConfirmationExpectation,
     self.testStorage.removeBatchAndDeleteEventsExpectation
   ]
                     timeout:1
@@ -860,6 +870,31 @@ typedef NS_ENUM(NSInteger, GDTNextRequestWaitTimeSource) {
   [self waitForUploadOperationsToFinish:self.uploader];
 }
 
+#pragma mark Client metrics
+
+- (void)configureDefaultClientMetrics {
+  self.clientMetrics = [[GDTCORClientMetrics alloc]
+      initWithCurrentStorageSize:1234
+              maximumStorageSize:5678
+        droppedEventsByMappingID:[GDTCORClientMetricsTestHelpers generateDroppedEventByMappingID]];
+}
+
+- (XCTestExpectation *)expectationForClientMetricsSendingConfirmation {
+  XCTestExpectation *expectation = [self expectationWithDescription:@"Client metrics sending confirmation"];
+
+  __auto_type weakSelf = self;
+  self.clientMetricsController.confirmSendingClientMetricsHandler = ^FBLPromise<NSNull *> * _Nonnull(GDTCORClientMetrics * _Nonnull sentMetrics) {
+    [expectation fulfill];
+
+    // Expect the same instance of `GDTCORClientMetrics` to be returned as a confirmation.
+    XCTAssertEqualObjects(sentMetrics, weakSelf.clientMetrics);
+
+    return [FBLPromise resolvedWith:[NSNull null]];
+  };
+
+  return expectation;
+}
+
 #pragma mark Request validation
 
 - (void)validateUploadRequest:(GCDWebServerDataRequest *)request {
@@ -886,7 +921,9 @@ typedef NS_ENUM(NSInteger, GDTNextRequestWaitTimeSource) {
       NSError *parsingError;
       __auto_type metricsProto = [GDTCCTTestRequestParser clientMetricsWithData:payload error:&parsingError];
 
-      XCTAssertEqual(<#expression1#>, <#expression2, ...#>)
+      if (parsingError == nil) {
+        [GDTCORClientMetricsTestHelpers assertMetrics:metrics correspondToProto:metricsProto];
+      }
 
       return parsingError == nil;
     }

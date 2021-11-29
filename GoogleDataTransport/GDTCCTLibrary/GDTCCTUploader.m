@@ -196,10 +196,10 @@ static NSURL *_testServerURL = nil;
     // Client metrics are supported only by the Firelog backend.
     case kGDTCORTargetFLL:
     case kGDTCORTargetCSH:
+    case kGDTCORTargetTest:
       return YES;
       break;
 
-    case kGDTCORTargetTest:
     case kGDTCORTargetCCT:
     case kGDTCORTargetINT:
       return NO;

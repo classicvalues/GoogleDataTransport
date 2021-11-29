@@ -54,6 +54,16 @@ NS_ASSUME_NONNULL_BEGIN
   }
 }
 
+#pragma mark - GDTCORStorageDelegate
+
+- (void)storage:(nonnull id<GDTCORStoragePromiseProtocol>)storage didDropEvent:(nonnull GDTCOREvent *)event {
+  [self doesNotRecognizeSelector:_cmd];
+}
+
+- (void)storage:(nonnull id<GDTCORStoragePromiseProtocol>)storage didRemoveExpiredEvents:(NSUInteger)eventCount {
+  [self doesNotRecognizeSelector:_cmd];
+}
+
 @end
 
 NS_ASSUME_NONNULL_END
