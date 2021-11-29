@@ -16,14 +16,13 @@
 
 #import "GoogleDataTransport/GDTCCTTests/Unit/Helpers/GDTCORClientMetricsTestHelpers.h"
 
-#import "GoogleDataTransport/GDTCORLibrary/ClientMetrics/GDTCORDroppedEventsCounter.h"
 #import "GoogleDataTransport/GDTCCTLibrary/GDTCORClientMetrics+GDTCCTSupport.h"
+#import "GoogleDataTransport/GDTCORLibrary/ClientMetrics/GDTCORDroppedEventsCounter.h"
 
 @implementation GDTCORClientMetricsTestHelpers
 
 + (void)assertMetrics:(GDTCORClientMetrics *)metrics
     correspondToProto:(gdt_client_metrics_ClientMetrics)metricsProto {
-
   // Verify storage metrics.
   XCTAssertEqual(metricsProto.global_metrics.storage_metrics.current_cache_size_bytes,
                  metrics.currentStorageSize);
@@ -31,8 +30,7 @@
                  metrics.maximumStorageSize);
 
   // Verify log source metrics.
-  XCTAssertEqual(metricsProto.log_source_metrics_count,
-                 metrics.droppedEventsByMappingID.count);
+  XCTAssertEqual(metricsProto.log_source_metrics_count, metrics.droppedEventsByMappingID.count);
 
   for (int logSourceIndex = 0; logSourceIndex < metricsProto.log_source_metrics_count;
        logSourceIndex++) {

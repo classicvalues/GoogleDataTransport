@@ -27,11 +27,11 @@
 #import "GoogleDataTransport/GDTCCTTests/Common/TestStorage/GDTCCTTestStorage.h"
 #import "GoogleDataTransport/GDTCORTests/Unit/Helpers/GDTCORClientMetricsControllerFake.h"
 
+#import "GoogleDataTransport/GDTCCTLibrary/GDTCORClientMetrics+GDTCCTSupport.h"
 #import "GoogleDataTransport/GDTCCTTests/Unit/Helpers/GDTCCTEventGenerator.h"
 #import "GoogleDataTransport/GDTCCTTests/Unit/Helpers/GDTCCTTestRequestParser.h"
-#import "GoogleDataTransport/GDTCCTTests/Unit/TestServer/GDTCCTTestServer.h"
 #import "GoogleDataTransport/GDTCCTTests/Unit/Helpers/GDTCORClientMetricsTestHelpers.h"
-#import "GoogleDataTransport/GDTCCTLibrary/GDTCORClientMetrics+GDTCCTSupport.h"
+#import "GoogleDataTransport/GDTCCTTests/Unit/TestServer/GDTCCTTestServer.h"
 
 typedef NS_ENUM(NSInteger, GDTNextRequestWaitTimeSource) {
   GDTNextRequestWaitTimeSourceResponseBody,
@@ -85,8 +85,7 @@ typedef NS_ENUM(NSInteger, GDTNextRequestWaitTimeSource) {
                                                     forTarget:kGDTCORTargetTest];
 
   __auto_type __weak weakSelf = self;
-  self.clientMetricsController.getMetricsHandler = ^FBLPromise<GDTCORClientMetrics *> *_Nonnull
-  {
+  self.clientMetricsController.getMetricsHandler = ^FBLPromise<GDTCORClientMetrics *> *_Nonnull {
     return [FBLPromise resolvedWith:weakSelf.clientMetrics];
   };
 }
@@ -132,7 +131,8 @@ typedef NS_ENUM(NSInteger, GDTNextRequestWaitTimeSource) {
   XCTestExpectation *responseSentExpectation = [self expectationTestServerSuccessRequestResponse];
 
   // 1.5. Client metrics confirmation expectation.
-  XCTestExpectation *metricsSentConfirmationExpectation = [self expectationForClientMetricsSendingConfirmation];
+  XCTestExpectation *metricsSentConfirmationExpectation =
+      [self expectationForClientMetricsSendingConfirmation];
 
   // 2. Create uploader and start upload.
   [self.uploader uploadTarget:kGDTCORTargetTest withConditions:GDTCORUploadConditionWifiData];
@@ -141,8 +141,8 @@ typedef NS_ENUM(NSInteger, GDTNextRequestWaitTimeSource) {
   [self waitForExpectations:@[
     self.testStorage.batchIDsForTargetExpectation,
     self.testStorage.removeBatchWithoutDeletingEventsExpectation, hasEventsExpectation,
-    self.testStorage.batchWithEventSelectorExpectation, responseSentExpectation, metricsSentConfirmationExpectation,
-    self.testStorage.removeBatchAndDeleteEventsExpectation
+    self.testStorage.batchWithEventSelectorExpectation, responseSentExpectation,
+    metricsSentConfirmationExpectation, self.testStorage.removeBatchAndDeleteEventsExpectation
   ]
                     timeout:1
                enforceOrder:YES];
@@ -880,10 +880,12 @@ typedef NS_ENUM(NSInteger, GDTNextRequestWaitTimeSource) {
 }
 
 - (XCTestExpectation *)expectationForClientMetricsSendingConfirmation {
-  XCTestExpectation *expectation = [self expectationWithDescription:@"Client metrics sending confirmation"];
+  XCTestExpectation *expectation =
+      [self expectationWithDescription:@"Client metrics sending confirmation"];
 
   __auto_type weakSelf = self;
-  self.clientMetricsController.confirmSendingClientMetricsHandler = ^FBLPromise<NSNull *> * _Nonnull(GDTCORClientMetrics * _Nonnull sentMetrics) {
+  self.clientMetricsController.confirmSendingClientMetricsHandler =
+      ^FBLPromise<NSNull *> *_Nonnull(GDTCORClientMetrics *_Nonnull sentMetrics) {
     [expectation fulfill];
 
     // Expect the same instance of `GDTCORClientMetrics` to be returned as a confirmation.
@@ -899,10 +901,12 @@ typedef NS_ENUM(NSInteger, GDTNextRequestWaitTimeSource) {
 
 - (void)validateUploadRequest:(GCDWebServerDataRequest *)request {
   NSError *parsingError;
-  __auto_type batchRequest = [GDTCCTTestRequestParser requestWithData:request.data error:&parsingError];
+  __auto_type batchRequest = [GDTCCTTestRequestParser requestWithData:request.data
+                                                                error:&parsingError];
   XCTAssertNil(parsingError);
 
-  __auto_type events = [GDTCCTTestRequestParser eventsWithBatchRequest:batchRequest error:&parsingError];
+  __auto_type events = [GDTCCTTestRequestParser eventsWithBatchRequest:batchRequest
+                                                                 error:&parsingError];
   XCTAssertNil(parsingError);
 
   [self assertEvents:events containsMetrics:self.clientMetrics];
@@ -912,23 +916,26 @@ typedef NS_ENUM(NSInteger, GDTNextRequestWaitTimeSource) {
 
 - (void)assertEvents:(NSArray<GDTCOREvent *> *)events
      containsMetrics:(nullable GDTCORClientMetrics *)metrics {
+  NSArray<GDTCOREvent *> *metricsEvents = [events
+      filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(GDTCOREvent *event,
+                                                                        NSDictionary<NSString *, id>
+                                                                            *_Nullable bindings) {
+        NSData *payload;
+        if ([event.dataObject isKindOfClass:[NSData class]]) {
+          payload = (NSData *)event.dataObject;
 
-  NSArray<GDTCOREvent *> *metricsEvents = [events filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(GDTCOREvent *event, NSDictionary<NSString *,id> * _Nullable bindings) {
-    NSData *payload;
-    if ([event.dataObject isKindOfClass:[NSData class]]) {
-      payload = (NSData *)event.dataObject;
+          NSError *parsingError;
+          __auto_type metricsProto = [GDTCCTTestRequestParser clientMetricsWithData:payload
+                                                                              error:&parsingError];
 
-      NSError *parsingError;
-      __auto_type metricsProto = [GDTCCTTestRequestParser clientMetricsWithData:payload error:&parsingError];
+          if (parsingError == nil) {
+            [GDTCORClientMetricsTestHelpers assertMetrics:metrics correspondToProto:metricsProto];
+          }
 
-      if (parsingError == nil) {
-        [GDTCORClientMetricsTestHelpers assertMetrics:metrics correspondToProto:metricsProto];
-      }
-
-      return parsingError == nil;
-    }
-    return NO;
-  }]];
+          return parsingError == nil;
+        }
+        return NO;
+      }]];
 
   BOOL expectMetricsEvent = metrics != nil;
   if (expectMetricsEvent) {

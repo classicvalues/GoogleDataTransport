@@ -30,13 +30,14 @@ NS_ASSUME_NONNULL_BEGIN
 + (void)assertMetrics:(GDTCORClientMetrics *)metrics
     correspondToProto:(gdt_client_metrics_ClientMetrics)metricsProto;
 
-/// Generates a random dropped events counters with enumeration of all possible reasons to populate `GDTCORClientMetrics.droppedEventsByMappingID`.
+/// Generates a random dropped events counters with enumeration of all possible reasons to populate
+/// `GDTCORClientMetrics.droppedEventsByMappingID`.
 + (NSDictionary<NSString *, NSArray<GDTCORDroppedEventsCounter *> *> *)
-generateDroppedEventByMappingID;
+    generateDroppedEventByMappingID;
 
-/// Generates an array  with `GDTCORDroppedEventsCounter` instances for each possible drop reason with a random count for the specified mapping ID.
-+ (NSArray<GDTCORDroppedEventsCounter *> *)generateDroppedEventsWithMappingID:
-(NSString *)mappingID;
+/// Generates an array  with `GDTCORDroppedEventsCounter` instances for each possible drop reason
+/// with a random count for the specified mapping ID.
++ (NSArray<GDTCORDroppedEventsCounter *> *)generateDroppedEventsWithMappingID:(NSString *)mappingID;
 
 @end
 

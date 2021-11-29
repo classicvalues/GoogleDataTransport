@@ -85,7 +85,9 @@
 
   if (clientMetrics.log_source_metrics == NULL && outError != NULL) {
     NSString *errorInfo = @"Failed to parse required fields.";
-    *outError = [NSError errorWithDomain:@"GDTCCTTestRequestParser" code:-1 userInfo:@{ NSLocalizedFailureReasonErrorKey:  errorInfo}];
+    *outError = [NSError errorWithDomain:@"GDTCCTTestRequestParser"
+                                    code:-1
+                                userInfo:@{NSLocalizedFailureReasonErrorKey : errorInfo}];
   }
 
   return clientMetrics;
