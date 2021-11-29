@@ -130,7 +130,7 @@ typedef NS_ENUM(NSInteger, GDTNextRequestWaitTimeSource) {
   // 1.4. Expect a batch to be uploaded.
   XCTestExpectation *responseSentExpectation = [self expectationTestServerSuccessRequestResponse];
 
-  // 1.5. Client metrics confirmation expectation.
+  // 1.5. Expect client metrics sending confirmation.
   XCTestExpectation *metricsSentConfirmationExpectation =
       [self expectationForClientMetricsSendingConfirmation];
 
@@ -157,6 +157,8 @@ typedef NS_ENUM(NSInteger, GDTNextRequestWaitTimeSource) {
   [self.generator generateEvent:GDTCOREventQoSFast];
   // 0.2. Batch the event.
   [self batchEvents];
+  // 0.3. Client metrics.
+  [self configureDefaultClientMetrics];
 
   // 1. Set up expectations.
   // 1.1. Set up all relevant storage expectations.
@@ -169,6 +171,10 @@ typedef NS_ENUM(NSInteger, GDTNextRequestWaitTimeSource) {
   // 1.3. Expect a batch to be uploaded.
   XCTestExpectation *responseSentExpectation = [self expectationTestServerSuccessRequestResponse];
 
+  // 1.4. Expect client metrics sending confirmation.
+  XCTestExpectation *metricsSentConfirmationExpectation =
+      [self expectationForClientMetricsSendingConfirmation];
+
   // 2. Create uploader and start upload.
   [self.uploader uploadTarget:kGDTCORTargetTest withConditions:GDTCORUploadConditionWifiData];
 
@@ -177,7 +183,7 @@ typedef NS_ENUM(NSInteger, GDTNextRequestWaitTimeSource) {
     self.testStorage.batchIDsForTargetExpectation,
     self.testStorage.removeBatchWithoutDeletingEventsExpectation, hasEventsExpectation,
     self.testStorage.batchWithEventSelectorExpectation, responseSentExpectation,
-    self.testStorage.removeBatchAndDeleteEventsExpectation
+    metricsSentConfirmationExpectation, self.testStorage.removeBatchAndDeleteEventsExpectation
   ]
                     timeout:1
                enforceOrder:NO];
@@ -727,8 +733,10 @@ typedef NS_ENUM(NSInteger, GDTNextRequestWaitTimeSource) {
 - (void)sendEventFailureWithStatusCode:(NSInteger)statusCode
                                headers:(NSDictionary<NSString *, NSString *> *)headers
                expectEventsToBeRemoved:(BOOL)expectEventsToBeRemoved {
-  // 0. Generate test events.
+  // 0.1. Generate test events.
   [self.generator generateEvent:GDTCOREventQoSFast];
+  // 0.2. Configure client metrics.
+  [self configureDefaultClientMetrics];
 
   // 1. Set up expectations.
   // 1.1. Set up all relevant storage expectations.
@@ -741,9 +749,14 @@ typedef NS_ENUM(NSInteger, GDTNextRequestWaitTimeSource) {
   XCTestExpectation *hasEventsExpectation =
       [self expectStorageHasEventsForTarget:self.generator.target result:YES];
 
-  // 1.4. Expect a batch to be uploaded.
+  // 1.3. Expect a batch to be uploaded.
   XCTestExpectation *responseSentExpectation =
       [self expectationTestServerResponseWithCode:statusCode headers:headers];
+
+  // 1.4. Don't expect client metrics sending confirmation.
+  XCTestExpectation *metricsSentConfirmationExpectation =
+      [self expectationForClientMetricsSendingConfirmation];
+  metricsSentConfirmationExpectation.inverted = YES;
 
   // 2. Create uploader and start upload.
   [self.uploader uploadTarget:self.generator.target withConditions:GDTCORUploadConditionWifiData];
@@ -753,7 +766,7 @@ typedef NS_ENUM(NSInteger, GDTNextRequestWaitTimeSource) {
     self.testStorage.batchIDsForTargetExpectation, hasEventsExpectation,
     self.testStorage.batchWithEventSelectorExpectation, responseSentExpectation,
     self.testStorage.removeBatchWithoutDeletingEventsExpectation,
-    self.testStorage.removeBatchAndDeleteEventsExpectation
+    self.testStorage.removeBatchAndDeleteEventsExpectation, metricsSentConfirmationExpectation
   ]
                     timeout:3
                enforceOrder:YES];
@@ -765,6 +778,9 @@ typedef NS_ENUM(NSInteger, GDTNextRequestWaitTimeSource) {
 - (void)sendEventSuccessfully {
   // 0. Generate test events.
   [self.generator generateEvent:GDTCOREventQoSFast];
+
+  // 0.2. Configure client metrics.
+  [self configureDefaultClientMetrics];
 
   // 1. Set up expectations.
   // 1.1. Set up all relevant storage expectations.
@@ -781,6 +797,10 @@ typedef NS_ENUM(NSInteger, GDTNextRequestWaitTimeSource) {
   // 1.4. Expect a batch to be uploaded.
   XCTestExpectation *responseSentExpectation = [self expectationTestServerSuccessRequestResponse];
 
+  // 1.5. Expect client metrics sending confirmation.
+  XCTestExpectation *metricsSentConfirmationExpectation =
+      [self expectationForClientMetricsSendingConfirmation];
+
   // 2. Create uploader and start upload.
   [self.uploader uploadTarget:self.generator.target withConditions:GDTCORUploadConditionWifiData];
 
@@ -789,7 +809,7 @@ typedef NS_ENUM(NSInteger, GDTNextRequestWaitTimeSource) {
     self.testStorage.batchIDsForTargetExpectation,
     self.testStorage.removeBatchWithoutDeletingEventsExpectation, hasEventsExpectation,
     self.testStorage.batchWithEventSelectorExpectation, responseSentExpectation,
-    self.testStorage.removeBatchAndDeleteEventsExpectation
+    metricsSentConfirmationExpectation, self.testStorage.removeBatchAndDeleteEventsExpectation
   ]
                     timeout:1
                enforceOrder:YES];
